@@ -14,11 +14,12 @@ from trains import Task
 
 def run():
     torch.multiprocessing.freeze_support()
-    nets = [ OneConvOneFcNet(),
+    nets = [ TwoConvTwoFcNet(),
+             OneConvOneFcNet(),
              TwoFcNet(),
              OneFcNet(),
-             TwoConvTwoFcNet(),
              models.vgg16()]
+    nets_active = [True, False, False, False, False]
 
     criterion = nn.CrossEntropyLoss()
 
@@ -38,7 +39,10 @@ def run():
                                              shuffle=False, num_workers=1)
     classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
-    for net in nets:
+    for i in range(0, len(nets)):
+        if not nets_active[i]:
+            continue
+        net = nets[i]
         model_name = net.__module__
         print("running on model", model_name)
         optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
@@ -66,6 +70,20 @@ def run():
                     print('[%d, %5d] loss: %.3f' %
                           (epoch + 1, i + 1, running_loss / 2000))
                     running_loss = 0.0
+            print('Finsihed Training')
+
+            correct = 0
+            total = 0
+            with torch.no_grad():
+                for data in testloader:
+                    images, labels = data
+                    outputs = net(images)
+                    _, predicted = torch.max(outputs.data, 1)
+                    total += labels.size(0)
+                    correct += (predicted == labels).sum().item()
+
+            print('Accuracy of the network on the 10000 test images: %d %%' % (
+                    100 * correct / total))
 
 if __name__ == '__main__':
     run()
