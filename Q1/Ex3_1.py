@@ -10,6 +10,7 @@ import torchvision.models as models
 import torch
 import torchvision
 import torchvision.transforms as transforms
+from trains import Task
 
 def run():
     torch.multiprocessing.freeze_support()
@@ -38,8 +39,10 @@ def run():
     classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
     for net in nets:
-        print("running on model" , net.__module__)
+        model_name = net.__module__
+        print("running on model", model_name)
         optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+        task = Task.init(project_name="MonitorsTest", task_name=model_name)
 
         for epoch in range(2):  # loop over the dataset multiple times
             running_loss = 0.0
