@@ -11,15 +11,13 @@ import torch
 import torchvision
 import torchvision.transforms as transforms
 
-
 def run():
     torch.multiprocessing.freeze_support()
-    nets = [ TwoFcNet(),
+    nets = [ OneConvOneFcNet(),
+             TwoFcNet(),
              OneFcNet(),
              TwoConvTwoFcNet(),
              models.vgg16()]
-#             OneConvOneFcNet(),
-#              ]
 
     criterion = nn.CrossEntropyLoss()
 
