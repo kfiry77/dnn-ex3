@@ -7,40 +7,39 @@ import torch.optim as optim
 import torchvision.models as models
 import numpy as np
 
-
 import torch
 import torchvision
 import torchvision.transforms as transforms
 from trains import Task, Logger
 
+criterion = nn.CrossEntropyLoss()
+
+cifar_10_dir = 'cifar-10-batches-py'
+
+transform = transforms.Compose(
+    [transforms.ToTensor(),
+     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+
+trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
+                                        download=True, transform=transform)
+trainloader = torch.utils.data.DataLoader(trainset, batch_size=4,
+                                          shuffle=True, num_workers=1)
+testset = torchvision.datasets.CIFAR10(root='./data', train=False,
+                                       download=True, transform=transform)
+testloader = torch.utils.data.DataLoader(testset, batch_size=4,
+                                         shuffle=False, num_workers=1)
+classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
+
+nets = [TwoConvTwoFcNet(),
+        OneConvOneFcNet(),
+        TwoFcNet(),
+        OneFcNet(),
+        models.vgg16()]
+nets_active = [True, True, False, False, False]
+
 
 def run():
     torch.multiprocessing.freeze_support()
-    nets = [ TwoConvTwoFcNet(),
-             OneConvOneFcNet(),
-             TwoFcNet(),
-             OneFcNet(),
-             models.vgg16()]
-    nets_active = [True, True, False, False, False]
-
-    criterion = nn.CrossEntropyLoss()
-
-    cifar_10_dir = 'cifar-10-batches-py'
-
-    transform = transforms.Compose(
-        [transforms.ToTensor(),
-         transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
-
-    trainset = torchvision.datasets.CIFAR10(root='./data', train=True,
-                                            download=True, transform=transform)
-    trainloader = torch.utils.data.DataLoader(trainset, batch_size=4,
-                                              shuffle=True, num_workers=1)
-    testset = torchvision.datasets.CIFAR10(root='./data', train=False,
-                                           download=True, transform=transform)
-    testloader = torch.utils.data.DataLoader(testset, batch_size=4,
-                                             shuffle=False, num_workers=1)
-    classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
-
     task = None
     for i in range(0, len(nets)):
         if not nets_active[i]:
@@ -54,7 +53,12 @@ def run():
         else:
             task = Task.create(project_name="MonitorsTest", task_name=model_name)
 
-        for epoch in range(20):  # loop over the dataset multiple times
+        # q1 - evaluate model before we start.
+        print(net.weights())
+        evaluate_model(0, net)
+        prev_weights = net.weights()
+
+        for epoch in range(1, 20):
             running_loss = 0.0
 
             train_loss = []
@@ -71,6 +75,12 @@ def run():
                 loss.backward()
                 optimizer.step()
 
+                w = evaluate_wieghts(prev_weights, net.weights())
+                Logger.current_logger().report_scalar(
+                    "weights", "aver", iteration=epoch * len(trainloader) + i, value=w)
+
+                prev_weights = net.weights()
+
                 # print statistics
                 train_loss.append(loss.item())
                 running_loss += loss.item()
@@ -78,30 +88,33 @@ def run():
                     print('[%d, %5d] loss: %.3f' %
                           (epoch + 1, i + 1, running_loss / 2000))
                     Logger.current_logger().report_scalar(
-                        "train", "loss", iteration=(epoch * len(trainloader) + i), value=running_loss/2000)
+                        "train", "loss", iteration=(epoch * len(trainloader) + i), value=running_loss / 2000)
+ #                   print(f"average weights delta = {w}")
                     running_loss = 0.0
-            print(f'Finsihed Training loss={np.mean(train_loss)}')
 
-            test_loss = []
-            test_accuracy = []
-            for i, (data, labels) in enumerate(testloader):
-                # pass data through network
-                outputs = net(data)
-                _, predicted = torch.max(outputs.data, 1)
-                loss = criterion(outputs, labels)
-                test_loss.append(loss.item())
-                test_accuracy.append((predicted == labels).sum().item() / predicted.size(0))
-            print(f'epoch: {epoch}, train loss: {np.mean(train_loss)}, ' \
-                  f'test loss: {np.mean(test_loss)}, test accuracy: {np.mean(test_accuracy)}')
+            print(f'Finsihed Training loss={np.mean(train_loss)}')
             Logger.current_logger().report_scalar(
-                "loss", "train", iteration=epoch, value=np.mean(test_loss))
-            Logger.current_logger().report_scalar(
-                "loss", "test", iteration=epoch, value=np.mean(test_loss))
-            Logger.current_logger().report_scalar(
-                "accuracy", "test", iteration=epoch, value=(np.mean(test_accuracy)))
+                "loss", "train", iteration=epoch, value=np.mean(train_loss))
+            evaluate_model(epoch, net)
+
+def evaluate_wieghts(cur_weights, prev_weights):
+    return torch.mean(torch.abs(cur_weights - prev_weights))
+
+def evaluate_model(epoch, net):
+    test_loss = []
+    test_accuracy = []
+    for i, (data, labels) in enumerate(testloader):
+        # pass data through network
+        outputs = net(data)
+        _, predicted = torch.max(outputs.data, 1)
+        loss = criterion(outputs, labels)
+        test_loss.append(loss.item())
+        test_accuracy.append((predicted == labels).sum().item() / predicted.size(0))
+    print(f'epoch: {epoch} test loss: {np.mean(test_loss)}, test accuracy: {np.mean(test_accuracy)}')
+    Logger.current_logger().report_scalar(
+        "loss", "test", iteration=epoch, value=np.mean(test_loss))
+    Logger.current_logger().report_scalar(
+        "accuracy", "test", iteration=epoch, value=(np.mean(test_accuracy)))
 
 if __name__ == '__main__':
     run()
-
-
-

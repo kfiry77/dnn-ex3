@@ -18,3 +18,11 @@ class TwoConvTwoFcNet(nn.Module):
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
         return x
+
+    def weights(self):
+        return torch.cat((torch.flatten(self.conv1.weight.data),
+                          torch.flatten(self.conv2.weight.data),
+                          torch.flatten(self.fc1.weight),
+                          torch.flatten(self.fc2.weight)
+                         ))
+

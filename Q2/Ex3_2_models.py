@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from trains import Task
+from trains import Task, Logger
 
 import keras
 from keras import metrics

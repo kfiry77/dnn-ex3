@@ -14,3 +14,9 @@ class OneConvOneFcNet(nn.Module):
         x = x.view(-1, 16 * 6 * 6)
         x = self.fc(x)
         return x
+
+    def weights(self):
+        return torch.cat((
+                          torch.flatten(self.conv.weight),
+                          torch.flatten(self.fc.weight)
+                         ))
