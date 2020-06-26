@@ -65,13 +65,15 @@ def TrainModel(model, base_model, model_name):
     base_model.trainable = True
     reporter.epoch_ref = 20
 
+    score = model.evaluate(test_ds)
+    print('Test evaluation Score:', model.evaluate(test_ds))
+    print('validation evaluation Score:', model.evaluate(valid_ds))
+
     model.compile(
         optimizer=keras.optimizers.Adam(1e-5),  # Low learning rate
         loss=keras.losses.BinaryCrossentropy(from_logits=True),
         metrics=[keras.metrics.BinaryAccuracy()],
     )
-
-    reporter.TrainsReporter
 
     model.fit(
         train_ds,
