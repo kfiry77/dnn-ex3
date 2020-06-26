@@ -35,7 +35,7 @@ nets = [TwoConvTwoFcNet(),
         TwoFcNet(),
         OneFcNet(),
         models.vgg16()]
-nets_active = [True, True, False, False, False]
+nets_active = [True, True, True, True, False]
 
 
 def run():
@@ -54,8 +54,8 @@ def run():
             task = Task.create(project_name="MonitorsTest", task_name=model_name)
 
         # q1 - evaluate model before we start.
-        print(net.weights())
         evaluate_model(0, net)
+
         prev_weights = net.weights()
 
         for epoch in range(1, 20):
@@ -75,6 +75,7 @@ def run():
                 loss.backward()
                 optimizer.step()
 
+                # check the weights and report it.
                 w = evaluate_wieghts(prev_weights, net.weights())
                 Logger.current_logger().report_scalar(
                     "weights", "aver", iteration=epoch * len(trainloader) + i, value=w)
@@ -89,7 +90,6 @@ def run():
                           (epoch + 1, i + 1, running_loss / 2000))
                     Logger.current_logger().report_scalar(
                         "train", "loss", iteration=(epoch * len(trainloader) + i), value=running_loss / 2000)
- #                   print(f"average weights delta = {w}")
                     running_loss = 0.0
 
             print(f'Finsihed Training loss={np.mean(train_loss)}')
