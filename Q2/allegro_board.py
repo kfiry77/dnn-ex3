@@ -3,7 +3,7 @@ from trains import Logger
 
 
 class TrainsReporter(callbacks.Callback):
-    def __init__(self)
+    def __init__(self):
         super(TrainsReporter, self).__init__()
         self.epoch_ref = 0
 
@@ -12,7 +12,11 @@ class TrainsReporter(callbacks.Callback):
         print("Stop training; got log keys: {}".format(keys))
 
     def on_epoch_end(self, epoch, logs=None):
-        Logger.current_logger().report_scalar("loss",     "train",      iteration=epoch_ref + epoch, value=logs["loss"])
-        Logger.current_logger().report_scalar("loss",     "validation", iteration=epoch_ref + epoch, value=logs["val_loss"])
-        Logger.current_logger().report_scalar("accuracy", "train",      iteration=epoch_ref + epoch, value=logs["binary_accuracy"])
-        Logger.current_logger().report_scalar("accuracy", "validation", iteration=epoch_ref + epoch, value=logs["val_binary_accuracy"])
+        Logger.current_logger().report_scalar(
+            "loss",     "train",      iteration=self.epoch_ref + epoch, value=logs["loss"])
+        Logger.current_logger().report_scalar(
+            "loss",     "validation", iteration=self.epoch_ref + epoch, value=logs["val_loss"])
+        Logger.current_logger().report_scalar(
+            "accuracy", "train",      iteration=self.epoch_ref + epoch, value=logs["binary_accuracy"])
+        Logger.current_logger().report_scalar(
+            "accuracy", "validation", iteration=self.epoch_ref + epoch, value=logs["val_binary_accuracy"])
