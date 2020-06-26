@@ -30,13 +30,26 @@ testloader = torch.utils.data.DataLoader(testset, batch_size=4,
                                          shuffle=False, num_workers=1)
 classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
+
+def get_model_params(model):
+    p_aggregate = None
+    for param in model.parameters():
+        t = torch.flatten(param.data)
+        if p_aggregate is None:
+            p_aggregate = t
+        else:
+            p_aggregate = torch.cat((p_aggregate, t))
+    return p_aggregate
+
+def evaluate_wieghts(cur_weights, prev_weights):
+    return torch.mean(torch.abs(cur_weights - prev_weights))
+
 nets = [TwoConvTwoFcNet(),
+        models.vgg16(),
         OneConvOneFcNet(),
         TwoFcNet(),
-        OneFcNet(),
-        models.vgg16()]
-nets_active = [True, True, True, True, False]
-
+        OneFcNet()]
+nets_active = [True, True, True, True, True]
 
 def run():
     torch.multiprocessing.freeze_support()
@@ -55,10 +68,9 @@ def run():
 
         # q1 - evaluate model before we start.
         evaluate_model(0, net)
+        prev_weights = get_model_params(net)
 
-        prev_weights = net.weights()
-
-        for epoch in range(1, 20):
+        for epoch in range(1, 10):
             running_loss = 0.0
 
             train_loss = []
@@ -76,11 +88,12 @@ def run():
                 optimizer.step()
 
                 # check the weights and report it.
-                w = evaluate_wieghts(prev_weights, net.weights())
+                cur_weights = get_model_params(net)
+                w = evaluate_wieghts(prev_weights, cur_weights)
                 Logger.current_logger().report_scalar(
                     "weights", "aver", iteration=epoch * len(trainloader) + i, value=w)
 
-                prev_weights = net.weights()
+                prev_weights = cur_weights
 
                 # print statistics
                 train_loss.append(loss.item())
@@ -96,9 +109,6 @@ def run():
             Logger.current_logger().report_scalar(
                 "loss", "train", iteration=epoch, value=np.mean(train_loss))
             evaluate_model(epoch, net)
-
-def evaluate_wieghts(cur_weights, prev_weights):
-    return torch.mean(torch.abs(cur_weights - prev_weights))
 
 def evaluate_model(epoch, net):
     test_loss = []

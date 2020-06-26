@@ -13,9 +13,3 @@ class TwoFcNet(nn.Module):
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
         return x
-
-    def weights(self):
-        return torch.cat((
-                          torch.flatten(self.fc1.weight),
-                          torch.flatten(self.fc2.weight)
-                         ))

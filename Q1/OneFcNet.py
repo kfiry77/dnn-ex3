@@ -11,6 +11,3 @@ class OneFcNet(nn.Module):
         x = x.view(-1, 32 * 32 * 3)
         x = self.fc(x)
         return x
-
-    def weights(self):
-        return torch.flatten(self.fc.weight)
