@@ -5,12 +5,14 @@ from load_cifar10 import *
 from TwoFcNet import *
 import torch.optim as optim
 import torchvision.models as models
+import numpy as np
 
 
 import torch
 import torchvision
 import torchvision.transforms as transforms
-from trains import Task
+from trains import Task, Logger
+
 
 def run():
     torch.multiprocessing.freeze_support()
@@ -19,7 +21,7 @@ def run():
              TwoFcNet(),
              OneFcNet(),
              models.vgg16()]
-    nets_active = [True, False, False, False, False]
+    nets_active = [True, True, False, False, False]
 
     criterion = nn.CrossEntropyLoss()
 
@@ -39,6 +41,7 @@ def run():
                                              shuffle=False, num_workers=1)
     classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
+    task = None
     for i in range(0, len(nets)):
         if not nets_active[i]:
             continue
@@ -46,11 +49,15 @@ def run():
         model_name = net.__module__
         print("running on model", model_name)
         optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
-        task = Task.init(project_name="MonitorsTest", task_name=model_name)
+        if task is None:
+            task = Task.init(project_name="MonitorsTest", task_name=model_name)
+        else:
+            task = Task.create(project_name="MonitorsTest", task_name=model_name)
 
-        for epoch in range(2):  # loop over the dataset multiple times
+        for epoch in range(20):  # loop over the dataset multiple times
             running_loss = 0.0
 
+            train_loss = []
             for i, data in enumerate(trainloader, 0):
                 # get the inputs
                 inputs, labels = data
@@ -65,25 +72,33 @@ def run():
                 optimizer.step()
 
                 # print statistics
+                train_loss.append(loss.item())
                 running_loss += loss.item()
-                if i % 2000 == 0:  # print every 2000 mini-batches
+                if i % 2000 == 1999:  # print every 2000 mini-batches
                     print('[%d, %5d] loss: %.3f' %
                           (epoch + 1, i + 1, running_loss / 2000))
+                    Logger.current_logger().report_scalar(
+                        "train", "loss", iteration=(epoch * len(trainloader) + i), value=running_loss/2000)
                     running_loss = 0.0
-            print('Finsihed Training')
+            print(f'Finsihed Training loss={np.mean(train_loss)}')
 
-            correct = 0
-            total = 0
-            with torch.no_grad():
-                for data in testloader:
-                    images, labels = data
-                    outputs = net(images)
-                    _, predicted = torch.max(outputs.data, 1)
-                    total += labels.size(0)
-                    correct += (predicted == labels).sum().item()
-
-            print('Accuracy of the network on the 10000 test images: %d %%' % (
-                    100 * correct / total))
+            test_loss = []
+            test_accuracy = []
+            for i, (data, labels) in enumerate(testloader):
+                # pass data through network
+                outputs = net(data)
+                _, predicted = torch.max(outputs.data, 1)
+                loss = criterion(outputs, labels)
+                test_loss.append(loss.item())
+                test_accuracy.append((predicted == labels).sum().item() / predicted.size(0))
+            print(f'epoch: {epoch}, train loss: {np.mean(train_loss)}, ' \
+                  f'test loss: {np.mean(test_loss)}, test accuracy: {np.mean(test_accuracy)}')
+            Logger.current_logger().report_scalar(
+                "loss", "train", iteration=epoch, value=np.mean(test_loss))
+            Logger.current_logger().report_scalar(
+                "loss", "test", iteration=epoch, value=np.mean(test_loss))
+            Logger.current_logger().report_scalar(
+                "accuracy", "test", iteration=epoch, value=(np.mean(test_accuracy)))
 
 if __name__ == '__main__':
     run()
