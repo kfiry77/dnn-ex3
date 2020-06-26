@@ -6,8 +6,7 @@ import keras
 from keras import metrics
 from keras.preprocessing.image import ImageDataGenerator
 from keras.applications import Xception
-
-from keras.callbacks import ModelCheckpoint, TensorBoard
+from allegro_board import *
 
 import tempfile
 
@@ -36,17 +35,12 @@ train_ds = CreateDataSet(dataset_folder_path + '/train', True, 60)
 valid_ds = CreateDataSet(dataset_folder_path + '/test', False, 20)
 test_ds = CreateDataSet(dataset_folder_path + '/valid', False, 20)
 
-
 def TrainModel(model, base_model, model_name):
 
     task = Task.init(project_name="Ex3ModelTrains", task_name=model_name)
-
+    reporter = TrainsReporter()
     # Show a summary of the model. Check the number of trainable parameters
     model.summary()
-
-    output_folder = os.path.join(tempfile.gettempdir(), 'keras_example')
-    board = TensorBoard(histogram_freq=1, log_dir=output_folder, write_images=False)
-    model_store = ModelCheckpoint(filepath=os.path.join(output_folder, 'weight.{epoch}.hdf5'))
 
     # Compile the model
     model.compile(loss=keras.losses.BinaryCrossentropy(from_logits=True),
@@ -54,12 +48,13 @@ def TrainModel(model, base_model, model_name):
                   metrics=[metrics.BinaryAccuracy()])
 
     # Train the model
-    history = model.fit(
+    model.fit(
         train_ds,
         steps_per_epoch=train_ds.samples / train_ds.batch_size,
         epochs=20,
         validation_data=valid_ds,
         validation_steps=valid_ds.samples / valid_ds.batch_size,
+        callbacks=[reporter],
         verbose=1)
 
     # Unfreeze the base_model. Note that it keeps running in inference mode
@@ -68,6 +63,7 @@ def TrainModel(model, base_model, model_name):
     # This prevents the batchnorm layers from undoing all the training
     # we've done so far.
     base_model.trainable = True
+    reporter.epoch_ref = 20
 
     model.compile(
         optimizer=keras.optimizers.Adam(1e-5),  # Low learning rate
@@ -75,37 +71,20 @@ def TrainModel(model, base_model, model_name):
         metrics=[keras.metrics.BinaryAccuracy()],
     )
 
-    history2 = model.fit(
+    reporter.TrainsReporter
+
+    model.fit(
         train_ds,
         steps_per_epoch=train_ds.samples / train_ds.batch_size,
         epochs=10,
         validation_data=valid_ds,
         validation_steps=valid_ds.samples / valid_ds.batch_size,
+        callbacks=[reporter],
         verbose=1)
 
- #   score = model.evaluate(test_ds)
- #   print('Test evaluation Score:', model.evaluate(test_ds))
- #   print('validation evaluation Score:', model.evaluate(valid_ds))
-
-    acc = history.history['binary_accuracy']
-    val_acc = history.history['val_binary_accuracy']
-    loss = history.history['loss']
-    val_loss = history.history['val_loss']
-
-    epochs = range(len(acc))
-
-    plt.plot(epochs, acc, 'b', label='Training acc')
-    plt.plot(epochs, val_acc, 'r', label='Validation acc')
-    plt.title(model_name + 'Training and validation accuracy')
-    plt.legend()
-
-    plt.figure()
-
-    plt.plot(epochs, loss, 'b', label='Training loss')
-    plt.plot(epochs, val_loss, 'r', label='Validation loss')
-    plt.title(model_name + 'Training and validation loss')
-    plt.legend()
-    plt.show()
+    score = model.evaluate(test_ds)
+    print('Test evaluation Score:', model.evaluate(test_ds))
+    print('validation evaluation Score:', model.evaluate(valid_ds))
 
 def CreateXceptionModel():
     base_model = Xception(weights='imagenet', include_top=False, input_shape=(img_height, img_width, 3))

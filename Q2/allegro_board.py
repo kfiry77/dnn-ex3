@@ -1,32 +1,18 @@
-from trains import Task
-import tensorflow as tf
-import numpy as np
-from tensorflow import keras
+from tensorflow.keras import callbacks
+from trains import Logger
 
-class TensorBoardImage(keras.callbacks.TensorBoard):
-    @staticmethod
-    def make_image(tensor):
-        from PIL import Image
-        import io
-        tensor = np.stack((tensor, tensor, tensor), axis=2)
-        height, width, channels = tensor.shape
-        image = Image.fromarray(tensor)
-        output = io.BytesIO()
-        image.save(output, format='PNG')
-        image_string = output.getvalue()
-        output.close()
-        return tf.Summary.Image(height=height,
-                                width=width,
-                                colorspace=channels,
-                                encoded_image_string=image_string)
+
+class TrainsReporter(callbacks.Callback):
+    def __init__(self)
+        super(TrainsReporter, self).__init__()
+        self.epoch_ref = 0
+
+    def on_train_end(self, logs=None):
+        keys = list(logs.keys())
+        print("Stop training; got log keys: {}".format(keys))
 
     def on_epoch_end(self, epoch, logs=None):
-        if logs is None:
-            logs = {}
-        super(TensorBoardImage, self).on_epoch_end(epoch, logs)
-        images = self.validation_data[0]  # 0 - data; 1 - labels
-        img = (255 * images[0].reshape(28, 28)).astype('uint8')
-
-        image = self.make_image(img)
-        summary = tf.Summary(value=[tf.Summary.Value(tag='image', image=image)])
-        self.writer.add_summary(summary, epoch)
+        Logger.current_logger().report_scalar("loss",     "train",      iteration=epoch_ref + epoch, value=logs["loss"])
+        Logger.current_logger().report_scalar("loss",     "validation", iteration=epoch_ref + epoch, value=logs["val_loss"])
+        Logger.current_logger().report_scalar("accuracy", "train",      iteration=epoch_ref + epoch, value=logs["binary_accuracy"])
+        Logger.current_logger().report_scalar("accuracy", "validation", iteration=epoch_ref + epoch, value=logs["val_binary_accuracy"])
