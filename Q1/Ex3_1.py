@@ -30,7 +30,6 @@ testloader = torch.utils.data.DataLoader(testset, batch_size=4,
                                          shuffle=False, num_workers=1)
 classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
 
-
 def get_model_params(model):
     p_aggregate = None
     for param in model.parameters():
@@ -44,16 +43,17 @@ def get_model_params(model):
 def evaluate_wieghts(cur_weights, prev_weights):
     return torch.mean(torch.abs(cur_weights - prev_weights))
 
-nets = [TwoConvTwoFcNet(),
-        models.vgg16(),
+nets = [models.resnet50(),
+        TwoConvTwoFcNet(),
         OneConvOneFcNet(),
         TwoFcNet(),
-        OneFcNet()]
+        OneFcNet(),
+        models.vgg16()] # sorry my computer couldn't cop with it.
+
 nets_active = [True, True, True, True, True]
 
 def run():
     torch.multiprocessing.freeze_support()
-    task = None
     for i in range(0, len(nets)):
         if not nets_active[i]:
             continue
@@ -61,20 +61,18 @@ def run():
         model_name = net.__module__
         print("running on model", model_name)
         optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
-        if task is None:
-            task = Task.init(project_name="MonitorsTest", task_name=model_name)
-        else:
-            task = Task.create(project_name="MonitorsTest", task_name=model_name)
+        task = Task.init(project_name="Ex3_1", task_name=model_name)
 
         # q1 - evaluate model before we start.
-        evaluate_model(0, net)
+        evaluate_model(0, net, task)
+
         prev_weights = get_model_params(net)
 
-        for epoch in range(1, 10):
+        for epoch in range(1, 15):
             running_loss = 0.0
 
             train_loss = []
-            for i, data in enumerate(trainloader, 0):
+            for j, data in enumerate(trainloader, 0):
                 # get the inputs
                 inputs, labels = data
 
@@ -90,27 +88,29 @@ def run():
                 # check the weights and report it.
                 cur_weights = get_model_params(net)
                 w = evaluate_wieghts(prev_weights, cur_weights)
-                Logger.current_logger().report_scalar(
-                    "weights", "aver", iteration=epoch * len(trainloader) + i, value=w)
+                task.get_logger().report_scalar(
+                    "weights", "aver", iteration=epoch * len(trainloader) + j, value=w)
 
                 prev_weights = cur_weights
 
                 # print statistics
                 train_loss.append(loss.item())
                 running_loss += loss.item()
-                if i % 2000 == 1999:  # print every 2000 mini-batches
+                if j % 2000 == 1999:  # print every 2000 mini-batches
                     print('[%d, %5d] loss: %.3f' %
-                          (epoch + 1, i + 1, running_loss / 2000))
-                    Logger.current_logger().report_scalar(
-                        "train", "loss", iteration=(epoch * len(trainloader) + i), value=running_loss / 2000)
+                          (epoch + 1, j + 1, running_loss / 2000))
+                    task.get_logger().report_scalar(
+                        "train", "loss", iteration=(epoch * len(trainloader) + j), value=running_loss / 2000)
                     running_loss = 0.0
 
             print(f'Finsihed Training loss={np.mean(train_loss)}')
-            Logger.current_logger().report_scalar(
+            task.get_logger().report_scalar(
                 "loss", "train", iteration=epoch, value=np.mean(train_loss))
-            evaluate_model(epoch, net)
+            evaluate_model(epoch, net, task)
 
-def evaluate_model(epoch, net):
+        task.close()
+
+def evaluate_model(epoch, net, task):
     test_loss = []
     test_accuracy = []
     for i, (data, labels) in enumerate(testloader):
@@ -121,9 +121,9 @@ def evaluate_model(epoch, net):
         test_loss.append(loss.item())
         test_accuracy.append((predicted == labels).sum().item() / predicted.size(0))
     print(f'epoch: {epoch} test loss: {np.mean(test_loss)}, test accuracy: {np.mean(test_accuracy)}')
-    Logger.current_logger().report_scalar(
+    task.get_logger().report_scalar(
         "loss", "test", iteration=epoch, value=np.mean(test_loss))
-    Logger.current_logger().report_scalar(
+    task.get_logger().report_scalar(
         "accuracy", "test", iteration=epoch, value=(np.mean(test_accuracy)))
 
 if __name__ == '__main__':
