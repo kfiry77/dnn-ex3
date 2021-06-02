@@ -101,7 +101,7 @@ tqdm==4.46.1
 trains==0.15.1
 traitlets==4.3.3
 typing==3.7.4.1
-urllib3==1.25.9
+urllib3==1.26.5
 wcwidth==0.2.5
 webencodings==0.5.1
 Werkzeug==1.0.1
